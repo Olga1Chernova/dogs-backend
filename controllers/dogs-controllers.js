@@ -1,70 +1,40 @@
-const {Superhero} = require("../models/superhero");
+const Dog = require('../models/dog');
 
-const HttpError = require('../helpers');
+exports.getDogs = async (req, res, next) => {
+  try {
+    const { attribute, order, pageNumber = 1, limit = 10 } = req.query;
+    const offset = (pageNumber - 1) * limit;
+    const orderCriteria = attribute ? [[attribute, order || 'ASC']] : [];
 
-const {controllerWrapper} = require('../utils')
-
-const addSuper = async (req, res) => {
-  const superheroData = req.body;
-  const superhero = await Superhero.create(superheroData);
-  res.status(201).json(superhero);
-};
-
-const getAllSupers = async (req, res) => {
-  const { page = 1, limit = 5 } = req.query;
-
-  const options = {
-      skip: (parseInt(page) - 1) * parseInt(limit),
-      limit: parseInt(limit),
-    };
-
-    const count = await Superhero.countDocuments();
-    const superheroes = await Superhero.find({}, null, options);
-
-    res.json({
-      totalItems: count,
-      currentPage: parseInt(page),
-      totalPages: Math.ceil(count / parseInt(limit)),
-      superheroes,
+    const dogs = await Dog.findAll({
+      order: orderCriteria,
+      offset,
+      limit,
     });
-  
-};
 
-const getSuperById = async (req, res) => {
-  const superheroId = req.params.id;
-  const superhero = await Superhero.findById(superheroId);
-  if (!superhero) {
-    throw HttpError(404, `Superhero with id ${superheroId} wasn't found`)
+    res.json(dogs);
+  } catch (error) {
+    console.error('Error querying dogs:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
-  res.json(superhero);
 };
 
-const updateSuper = async (req, res) => {
-  const superheroId = req.params.id;
-  const superheroData = req.body;
-  const superhero = await Superhero.findByIdAndUpdate(superheroId, superheroData, {
-    new: true,
-    runValidators: true,
-  });
-  if (!superhero) {
-    throw HttpError(404, `Superhero with id ${superheroId} wasn't found`)
+exports.createDog = async (req, res, next) => {
+  try {
+    const { name, color, tail_length, weight } = req.body;
+
+    if (!name || !color || !tail_length || !weight) {
+      return res.status(400).json({ error: 'Invalid input data' });
+    }
+
+    const existingDog = await Dog.findOne({ where: { name } });
+    if (existingDog) {
+      return res.status(409).json({ error: 'Dog with the same name already exists' });
+    }
+    const newDog = await Dog.create({ name, color, tail_length, weight });
+    res.status(201).json(newDog);
+  } catch (error) {
+    console.error('Error creating dog:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
-    res.json(superhero);
 };
-
-const deleteSuper = async (req, res) => {
-  const superheroId = req.params.id;
-  const superhero = await Superhero.findByIdAndDelete(superheroId);
-  if (!superhero) {
-    throw HttpError(404, `Superhero with id ${superheroId} wasn't found`)
-  }
-  res.json(superhero);
-};
-
-module.exports = {
-  getAllSupers: controllerWrapper(getAllSupers),
-  getSuperById: controllerWrapper(getSuperById),
-  addSuper: controllerWrapper(addSuper),
-  deleteSuper: controllerWrapper(deleteSuper),
-  updateSuper: controllerWrapper(updateSuper),
-}
