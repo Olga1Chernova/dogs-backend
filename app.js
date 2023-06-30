@@ -1,26 +1,34 @@
-const express = require('express')
-const logger = require('morgan')
-const cors = require('cors')
 require('dotenv').config();
-const dogsRouter = require('./routes/api/superheroes-routes');
+const { sequelize } = require('./config/database');
+const express = require('express');
+const bodyParser = require('body-parser');
+const dogController = require('./controllers/dogController');
 
 const app = express();
 
-const formatsLogger = app.get('env') === 'development' ? 'dev' : 'short';
+app.use(bodyParser.json());
 
-app.use(logger(formatsLogger))
-app.use(cors())
-app.use(express.json())
+app.get('/ping', (req, res) => {
+  res.send('Dogshouseservice.Version1.0.1');
+});
 
-app.use('/api/superheroes', dogsRouter)
+app.get('/dogs', dogController.getDogs);
+app.post('/dog', dogController.createDog);
 
-app.use((_, res) => {
-  res.status(404).json({ message: 'Not found' })
-})
+app.use((req, res, next) => {
+  res.status(404).json({ error: 'Not Found' });
+});
 
 app.use((err, req, res, next) => {
-  const { status = 500, message = 'Server error happend' } = err;
-  res.status(status).json({ message })
-})
+  console.error('Global Error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
-module.exports = app;
+const PORT = 3000;
+sequelize.sync().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}).catch((error) => {
+  console.error('Error syncing database:', error);
+});
